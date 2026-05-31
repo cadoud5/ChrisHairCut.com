@@ -213,7 +213,7 @@
           <label for="m-notes">Notes (optional)</label>
           <textarea id="m-notes" placeholder="Any requests or questions…"></textarea>
         </div>
-        <button type="submit" class="modal-submit">Confirm Booking Request</button>
+        <button type="submit" id="submitBtn" class="modal-submit">Confirm Booking Request</button>
       </form>
     </div>
 
@@ -225,62 +225,9 @@
   </div>
 </div>
 
-<script>
-  // Highlight today in hours table
-  const dayMap = ['sun','mon','tue','wed','thu','fri','sat'];
-  const todayKey = dayMap[new Date().getDay()];
-  const row = document.getElementById('row-' + todayKey);
-  if (row) row.classList.add('today');
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
-  // Set min date
-  const d = new Date();
-  const dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  document.getElementById('m-date').min = dateStr;
+<script src="script.js"></script>
 
-  // Tabs
-  function switchTab(tab) {
-    document.getElementById('tab-services').classList.toggle('active', tab === 'services');
-    document.getElementById('tab-staff').classList.toggle('active', tab === 'staff');
-    document.getElementById('panel-services').classList.toggle('hidden', tab !== 'services');
-    document.getElementById('panel-staff').classList.toggle('visible', tab === 'staff');
-  }
-
-  // Modal
-  function openModal(service) {
-    document.getElementById('modalOverlay').classList.add('open');
-    document.getElementById('modalForm').classList.remove('hidden');
-    document.getElementById('modalSuccess').classList.remove('visible');
-    if (service) {
-      const sel = document.getElementById('m-service');
-      Array.from(sel.options).forEach(o => {
-        if (o.text.startsWith(service)) sel.value = o.value;
-      });
-    }
-  }
-  function closeModal() {
-    document.getElementById('modalOverlay').classList.remove('open');
-  }
-  function closeModalOutside(e) {
-    if (e.target === document.getElementById('modalOverlay')) closeModal();
-  }
-  function submitForm(e) {
-    e.preventDefault();
-    document.getElementById('modalForm').classList.add('hidden');
-    document.getElementById('modalSuccess').classList.add('visible');
-  }
-
-  function updateTopnavExpandedState() {
-    const topnav = document.querySelector('.topnav');
-    if (!topnav) return;
-    if (window.scrollY <= 0) {
-      topnav.classList.add('top-expanded');
-    } else {
-      topnav.classList.remove('top-expanded');
-    }
-  }
-
-  window.addEventListener('scroll', updateTopnavExpandedState);
-  window.addEventListener('load', updateTopnavExpandedState);
-</script>
 </body>
 </html>

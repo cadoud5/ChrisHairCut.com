@@ -108,7 +108,7 @@
       height: 400px;
       background:
         linear-gradient(to right, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.55) 100%),
-        url('img/Banner.png') center/cover no-repeat;
+        url('img/Banner_alt.png') 30% 55%/120% no-repeat;
       position: relative;
       display: flex;
       align-items: center;

@@ -80,6 +80,15 @@ function timeTo24hr(t) {
   return String(hours).padStart(2,'0') + ':' + minutes + ':00';
 }
 
+function adjustCentralToEastern(dateTime) {
+  // Convert Central Time to Eastern Time by adding 1 hour
+  // dateTime format: "YYYY-MM-DDTHH:MM:SS"
+  const [date, time] = dateTime.split('T');
+  const [hours, minutes, seconds] = time.split(':');
+  const newHours = String((parseInt(hours) + 1) % 24).padStart(2, '0');
+  return date + 'T' + newHours + ':' + minutes + ':' + seconds;
+}
+
 async function submitForm(e) {
   e.preventDefault();
 
@@ -124,6 +133,8 @@ async function submitForm(e) {
     await emailjs.send(EMAILJS_SERVICE_ID, OWNER_TEMPLATE_ID, p);
 
     // Send to Make.com for Outlook Calendar
+    const adjustedStartDate = adjustCentralToEastern(startDateTime);
+    const adjustedEndDate = adjustCentralToEastern(endDateTime);
     await fetch('https://hook.us2.make.com/llxu9px6vjsmuqfgnvlba2av6yz3miol', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -133,8 +144,8 @@ async function submitForm(e) {
         email:      p.customer_email,
         service:    p.service,
         price:      p.price,
-        startDate:  startDateTime,
-        endDate:    endDateTime,
+        startDate:  adjustedStartDate,
+        endDate:    adjustedEndDate,
         notes:      p.notes,
       })
     });

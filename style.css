@@ -256,6 +256,13 @@
     .service-meta span {
       color: var(--text-muted);
     }
+    .services-note {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 1.25rem;
+      text-align: center;
+      font-style: italic;
+    }
 
     /* Staff tab content */
     .staff-panel { display: none; }

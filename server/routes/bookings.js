@@ -123,6 +123,111 @@ router.post('/',
   }
 );
 
+// Admin-only: manually add an appointment (walk-in, phone booking, etc.)
+// Skips the "agreedToTerms" requirement since the customer isn't filling
+// this out themselves, and marks the booking confirmed right away instead
+// of pending. Email is optional — walk-ins often don't have one on file.
+router.post('/manual',
+  verifyToken,
+  requireAdmin,
+  [
+    // Every field here is optional — admins can add a placeholder appointment
+    // with as little info as they have on hand and fill in the rest later.
+    // Sensible defaults for anything left blank are applied below, since the
+    // bookings table itself still requires non-null values for these columns.
+    body('name').optional({ checkFalsy: true }).trim().isLength({ max: 150 }).withMessage('Name is too long'),
+    body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }).withMessage('Phone number is too long'),
+    body('email').optional({ checkFalsy: true }).trim().isEmail().withMessage('Please enter a valid email').normalizeEmail(),
+    body('service').optional({ checkFalsy: true }).trim().isLength({ max: 200 }).withMessage('Service name is too long'),
+    body('price').optional({ checkFalsy: true }).trim().isLength({ max: 30 }).withMessage('Price is too long'),
+    body('startDate').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid start date'),
+    body('endDate').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid end date'),
+    body('notes').optional({ checkFalsy: true }).trim().isLength({ max: 1000 }).withMessage('Notes are too long'),
+  ],
+  async (req, res) => {
+    if (handleValidation(req, res)) return;
+
+    const name = req.body.name || 'Walk-in Client';
+    const phone = req.body.phone || '';
+    const service = req.body.service || 'N/A';
+    const price = req.body.price || 'N/A';
+    const notes = req.body.notes || '';
+    const email = req.body.email || '';
+
+    // Default a missing start time to right now, and a missing end time to
+    // 30 minutes after the (possibly just-defaulted) start time.
+    const startDate = req.body.startDate || new Date().toISOString();
+    const endDate = req.body.endDate || new Date(new Date(startDate).getTime() + 30 * 60000).toISOString();
+
+    // If this client already has an account, link the booking to it
+    // (same lookup the public booking route does for guests).
+    let userId = null;
+    if (email) {
+      try {
+        const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+        if (existingUser.rows.length > 0) {
+          userId = existingUser.rows[0].id;
+        }
+      } catch (linkErr) {
+        console.error('Failed to check for existing account by email:', linkErr.message);
+      }
+    }
+
+    try {
+      let calendarEventId = null;
+      try {
+        const event = await createEvent({
+          summary: `${service} — ${name}`,
+          description: `Phone: ${phone}\nEmail: ${email || 'N/A'}\nPrice: ${price}\nNotes: ${notes || 'None'}\n(Added manually via admin dashboard)`,
+          startDateTime: startDate,
+          endDateTime: endDate,
+          location: 'UIC Roosevelt Road Building, Chicago, IL',
+        });
+        calendarEventId = event.id;
+      } catch (calErr) {
+        console.error('Calendar event creation failed:', calErr.message);
+      }
+
+      const result = await pool.query(
+        `INSERT INTO bookings (name, phone, email, service, price, start_date, end_date, notes, calendar_event_id, user_id, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'confirmed')
+         RETURNING *`,
+        [name, phone, email, service, price, startDate, endDate, notes, calendarEventId, userId]
+      );
+
+      const booking = result.rows[0];
+
+      if (email) {
+        const dateStr = readableDate(startDate);
+        try {
+          await sendEmail({
+            to: email,
+            subject: `Appointment Confirmed — ${dateStr}`,
+            html: `
+              <h2>Appointment Confirmed!</h2>
+              <p>Hi ${escapeHtml(name)},</p>
+              <p>You're booked in:</p>
+              <ul>
+                <li><strong>Service:</strong> ${escapeHtml(service)}</li>
+                <li><strong>Date:</strong> ${dateStr}</li>
+                <li><strong>Price:</strong> ${escapeHtml(price)}</li>
+              </ul>
+              <p>See you then! Questions? Text or call 773.314.0148.</p>
+            `
+          });
+        } catch (emailErr) {
+          console.error('Confirmation email failed:', emailErr.message);
+        }
+      }
+
+      res.status(201).json(booking);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to create booking' });
+    }
+  }
+);
+
 router.get('/', verifyToken, requireAdmin, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
@@ -168,6 +273,10 @@ router.patch('/:id',
       return res.status(404).json({ error: 'Booking not found' });
     }
     const before = existing.rows[0];
+
+    if (before.archived) {
+      return res.status(400).json({ error: 'This appointment is archived. Unarchive it before making changes.' });
+    }
 
     const result = await pool.query(
       `UPDATE bookings
@@ -234,6 +343,36 @@ router.patch('/:id',
     console.error(err);
     res.status(500).json({ error: 'Failed to update booking' });
   }
+  }
+);
+
+// Archive/unarchive — archived appointments are read-only (see the
+// early-return in PATCH /:id above) until they're unarchived here.
+router.patch('/:id/archive',
+  verifyToken,
+  requireAdmin,
+  [
+    body('archived').isBoolean().withMessage('archived must be true or false'),
+  ],
+  async (req, res) => {
+    if (handleValidation(req, res)) return;
+
+    const { id } = req.params;
+    const { archived } = req.body;
+
+    try {
+      const result = await pool.query(
+        `UPDATE bookings SET archived = $1 WHERE id = $2 RETURNING *`,
+        [archived, id]
+      );
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Booking not found' });
+      }
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to update archive status' });
+    }
   }
 );
 

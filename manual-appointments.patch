@@ -1,0 +1,356 @@
+diff --git a/public/admin.html b/public/admin.html
+index 828fa13..8315600 100644
+--- a/public/admin.html
++++ b/public/admin.html
+@@ -23,6 +23,7 @@
+     <div class="dash-header">
+       <h1 id="dashTitle">Bookings</h1>
+       <div class="dash-actions">
++        <button class="view-site-btn" id="addAppointmentBtn" data-action="open-add-appointment">+ Add Appointment</button>
+         <a href="/" class="view-site-btn">View Site</a>
+         <button class="logout-btn" data-action="admin-logout">Log Out</button>
+       </div>
+@@ -37,6 +38,67 @@
+     <div id="reviewsWrap" class="hidden"></div>
+   </div>
+ 
++  <div class="modal-overlay" id="addAppointmentOverlay">
++    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-appt-title">
++      <button class="modal-close" data-action="close-add-appointment" aria-label="Close">×</button>
++
++      <div class="modal-form">
++        <p class="modal-title" id="add-appt-title">Add Appointment</p>
++
++        <form id="addAppointmentForm">
++          <div class="form-row">
++            <div class="form-group">
++              <label for="aa-name">Client Name</label>
++              <input type="text" id="aa-name" placeholder="Full name" required />
++            </div>
++            <div class="form-group">
++              <label for="aa-phone">Phone</label>
++              <input type="tel" id="aa-phone" placeholder="xxx-xxx-xxxx" required />
++            </div>
++          </div>
++          <div class="form-group">
++            <label for="aa-email">Email (optional)</label>
++            <input type="email" id="aa-email" placeholder="you@example.com" />
++          </div>
++          <div class="form-group">
++            <label for="aa-service">Service</label>
++            <select id="aa-service" required>
++              <option value="" disabled selected>Choose a service…</option>
++              <option>Mens Haircut — $17.00 · 30 min</option>
++              <option>Buzzcut — $10.00 · 30 min</option>
++              <option>UIC Student — $13.00 · 30 min</option>
++            </select>
++          </div>
++          <div class="form-row">
++            <div class="form-group">
++              <label for="aa-date">Date</label>
++              <input type="date" id="aa-date" required />
++            </div>
++            <div class="form-group">
++              <label for="aa-time">Time (Central)</label>
++              <select id="aa-time" required>
++                <option value="" disabled selected>Select…</option>
++                <option>11:00 AM</option><option>11:30 AM</option>
++                <option>12:00 PM</option><option>12:30 PM</option>
++                <option>1:00 PM</option><option>1:30 PM</option>
++                <option>2:00 PM</option><option>2:30 PM</option>
++                <option>3:00 PM</option><option>3:30 PM</option>
++                <option>4:00 PM</option><option>4:30 PM</option>
++                <option>5:00 PM</option><option>5:30 PM</option>
++                <option>6:00 PM</option><option>6:30 PM</option>
++              </select>
++            </div>
++          </div>
++          <div class="form-group">
++            <label for="aa-notes">Notes (optional)</label>
++            <textarea id="aa-notes" placeholder="Any notes…"></textarea>
++          </div>
++          <button type="submit" id="addAppointmentSubmitBtn" class="modal-submit">Add Appointment</button>
++        </form>
++      </div>
++    </div>
++  </div>
++
+   <script src="admin.js"></script>
+ </body>
+ </html>
+\ No newline at end of file
+diff --git a/public/admin.js b/public/admin.js
+index a9fe171..7e56bf6 100644
+--- a/public/admin.js
++++ b/public/admin.js
+@@ -216,6 +216,101 @@ async function deleteBooking(id, name) {
+   }
+ }
+ 
++// ─────────────────────────────────────────
++// ADD APPOINTMENT (manual booking)
++// ─────────────────────────────────────────
++
++const addApptPrices = {
++  'Mens Haircut — $17.00 · 30 min': '$17.00',
++  'Buzzcut — $10.00 · 30 min': '$10.00',
++  'UIC Student — $13.00 · 30 min': '$13.00',
++};
++
++function addApptTimeTo24hr(t) {
++  const [time, modifier] = t.split(' ');
++  let [hours, minutes] = time.split(':');
++  hours = parseInt(hours);
++  if (modifier === 'PM' && hours !== 12) hours += 12;
++  if (modifier === 'AM' && hours === 12) hours = 0;
++  return String(hours).padStart(2, '0') + ':' + minutes + ':00';
++}
++
++function openAddAppointment() {
++  document.getElementById('addAppointmentForm').reset();
++  document.getElementById('addAppointmentOverlay').classList.add('open');
++}
++
++function closeAddAppointment() {
++  document.getElementById('addAppointmentOverlay').classList.remove('open');
++}
++
++async function submitAddAppointment(e) {
++  e.preventDefault();
++
++  const btn = document.getElementById('addAppointmentSubmitBtn');
++  btn.textContent = 'Adding…';
++  btn.disabled = true;
++
++  const name = document.getElementById('aa-name').value.trim();
++  const phone = document.getElementById('aa-phone').value.trim();
++  const email = document.getElementById('aa-email').value.trim();
++  const service = document.getElementById('aa-service').value;
++  const price = addApptPrices[service] || 'N/A';
++  const notes = document.getElementById('aa-notes').value.trim() || 'None';
++
++  const rawDate = document.getElementById('aa-date').value;
++  const rawTime = document.getElementById('aa-time').value;
++
++  const startTime24 = addApptTimeTo24hr(rawTime);
++  const startDateTime = rawDate + 'T' + startTime24 + '-05:00';
++  const endHour = String(parseInt(startTime24.slice(0, 2)) + 1).padStart(2, '0');
++  const endDateTime = rawDate + 'T' + endHour + ':' + startTime24.slice(3) + '-05:00';
++
++  const token = getToken();
++
++  try {
++    const res = await fetch(API + '/api/bookings/manual', {
++      method: 'POST',
++      headers: {
++        'Content-Type': 'application/json',
++        'Authorization': 'Bearer ' + token
++      },
++      body: JSON.stringify({
++        name, phone, email, service, price,
++        startDate: startDateTime,
++        endDate: endDateTime,
++        notes,
++      })
++    });
++
++    if (res.status === 401 || res.status === 403) {
++      logout();
++      return;
++    }
++
++    if (!res.ok) {
++      const err = await res.json().catch(() => ({}));
++      throw new Error(err.error || 'Failed to add appointment');
++    }
++
++    const booking = await res.json();
++    bookingsCache.push(booking);
++    bookingsCache.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
++    renderTable();
++    closeAddAppointment();
++  } catch (err) {
++    alert(err.message || 'Failed to add appointment. Try again.');
++  } finally {
++    btn.textContent = 'Add Appointment';
++    btn.disabled = false;
++  }
++}
++
++document.getElementById('addAppointmentForm').addEventListener('submit', submitAddAppointment);
++document.getElementById('addAppointmentOverlay').addEventListener('click', (e) => {
++  if (e.target === document.getElementById('addAppointmentOverlay')) closeAddAppointment();
++});
++
+ // ─────────────────────────────────────────
+ // ADMIN TABS
+ // ─────────────────────────────────────────
+@@ -355,8 +450,10 @@ if (getToken()) {
+ // ─────────────────────────────────────────
+ 
+ const adminStaticActionHandlers = {
+-  'admin-logout':     () => logout(),
+-  'switch-admin-tab': (arg) => switchAdminTab(arg),
++  'admin-logout':           () => logout(),
++  'switch-admin-tab':       (arg) => switchAdminTab(arg),
++  'open-add-appointment':   () => openAddAppointment(),
++  'close-add-appointment':  () => closeAddAppointment(),
+ };
+ 
+ document.addEventListener('click', (e) => {
+diff --git a/server/__tests__/access-control.test.js b/server/__tests__/access-control.test.js
+index 9c32197..0622978 100644
+--- a/server/__tests__/access-control.test.js
++++ b/server/__tests__/access-control.test.js
+@@ -50,6 +50,48 @@ describe('GET /api/bookings (admin-only route)', () => {
+   });
+ });
+ 
++describe('POST /api/bookings/manual (admin-only route)', () => {
++  const payload = {
++    name: 'Walk-in Client',
++    phone: '773-555-0100',
++    service: 'Buzzcut — $10.00 · 30 min',
++    price: '$10.00',
++    startDate: '2026-09-10T11:00:00-05:00',
++    endDate: '2026-09-10T11:30:00-05:00',
++  };
++
++  test('rejects requests with no token', async () => {
++    const res = await request(app).post('/api/bookings/manual').send(payload);
++    expect(res.status).toBe(401);
++  });
++
++  test('rejects a valid token belonging to a non-admin customer', async () => {
++    const token = tokenFor({ id: 2, role: 'customer' });
++    const res = await request(app)
++      .post('/api/bookings/manual')
++      .set('Authorization', `Bearer ${token}`)
++      .send(payload);
++
++    expect(res.status).toBe(403);
++    expect(pool.query).not.toHaveBeenCalled();
++  });
++
++  test('allows a valid admin token to create a manual booking', async () => {
++    pool.query.mockResolvedValueOnce({
++      rows: [{ id: 10, ...payload, status: 'confirmed' }],
++    });
++    const token = tokenFor({ id: 1, role: 'admin' });
++
++    const res = await request(app)
++      .post('/api/bookings/manual')
++      .set('Authorization', `Bearer ${token}`)
++      .send(payload);
++
++    expect(res.status).toBe(201);
++    expect(res.body.status).toBe('confirmed');
++  });
++});
++
+ describe('GET /api/bookings/mine (customer-scoped route)', () => {
+   test('only ever queries bookings for the logged-in user\'s own id', async () => {
+     pool.query.mockResolvedValueOnce({ rows: [] });
+diff --git a/server/routes/bookings.js b/server/routes/bookings.js
+index 83b93eb..dd6ec9f 100644
+--- a/server/routes/bookings.js
++++ b/server/routes/bookings.js
+@@ -123,6 +123,98 @@ router.post('/',
+   }
+ );
+ 
++// Admin-only: manually add an appointment (walk-in, phone booking, etc.)
++// Skips the "agreedToTerms" requirement since the customer isn't filling
++// this out themselves, and marks the booking confirmed right away instead
++// of pending. Email is optional — walk-ins often don't have one on file.
++router.post('/manual',
++  verifyToken,
++  requireAdmin,
++  [
++    body('name').trim().isLength({ min: 1, max: 150 }).withMessage('Name is required'),
++    body('phone').trim().isLength({ min: 7, max: 20 }).withMessage('Please enter a valid phone number'),
++    body('email').optional({ checkFalsy: true }).trim().isEmail().withMessage('Please enter a valid email').normalizeEmail(),
++    body('service').trim().isLength({ min: 1, max: 200 }).withMessage('Service is required'),
++    body('price').trim().isLength({ min: 1, max: 30 }).withMessage('Price is required'),
++    body('startDate').isISO8601().withMessage('Invalid start date'),
++    body('endDate').isISO8601().withMessage('Invalid end date'),
++    body('notes').optional({ checkFalsy: true }).trim().isLength({ max: 1000 }).withMessage('Notes are too long'),
++  ],
++  async (req, res) => {
++    if (handleValidation(req, res)) return;
++
++    const { name, phone, service, price, startDate, endDate, notes } = req.body;
++    const email = req.body.email || '';
++
++    // If this client already has an account, link the booking to it
++    // (same lookup the public booking route does for guests).
++    let userId = null;
++    if (email) {
++      try {
++        const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
++        if (existingUser.rows.length > 0) {
++          userId = existingUser.rows[0].id;
++        }
++      } catch (linkErr) {
++        console.error('Failed to check for existing account by email:', linkErr.message);
++      }
++    }
++
++    try {
++      let calendarEventId = null;
++      try {
++        const event = await createEvent({
++          summary: `${service} — ${name}`,
++          description: `Phone: ${phone}\nEmail: ${email || 'N/A'}\nPrice: ${price}\nNotes: ${notes || 'None'}\n(Added manually via admin dashboard)`,
++          startDateTime: startDate,
++          endDateTime: endDate,
++          location: 'UIC Roosevelt Road Building, Chicago, IL',
++        });
++        calendarEventId = event.id;
++      } catch (calErr) {
++        console.error('Calendar event creation failed:', calErr.message);
++      }
++
++      const result = await pool.query(
++        `INSERT INTO bookings (name, phone, email, service, price, start_date, end_date, notes, calendar_event_id, user_id, status)
++         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'confirmed')
++         RETURNING *`,
++        [name, phone, email, service, price, startDate, endDate, notes, calendarEventId, userId]
++      );
++
++      const booking = result.rows[0];
++
++      if (email) {
++        const dateStr = readableDate(startDate);
++        try {
++          await sendEmail({
++            to: email,
++            subject: `Appointment Confirmed — ${dateStr}`,
++            html: `
++              <h2>Appointment Confirmed!</h2>
++              <p>Hi ${escapeHtml(name)},</p>
++              <p>You're booked in:</p>
++              <ul>
++                <li><strong>Service:</strong> ${escapeHtml(service)}</li>
++                <li><strong>Date:</strong> ${dateStr}</li>
++                <li><strong>Price:</strong> ${escapeHtml(price)}</li>
++              </ul>
++              <p>See you then! Questions? Text or call 773.314.0148.</p>
++            `
++          });
++        } catch (emailErr) {
++          console.error('Confirmation email failed:', emailErr.message);
++        }
++      }
++
++      res.status(201).json(booking);
++    } catch (err) {
++      console.error(err);
++      res.status(500).json({ error: 'Failed to create booking' });
++    }
++  }
++);
++
+ router.get('/', verifyToken, requireAdmin, async (req, res) => {
+   res.set('Cache-Control', 'no-store');
+   try {

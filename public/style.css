@@ -761,7 +761,7 @@ body { font-family: 'Inter', sans-serif; background: #f2ece8; color: #1a1a1a; fo
 .back-to-site { display: block; text-align: center; margin-top: 1.25rem; font-size: 12px; color: #9a9187; text-decoration: none; }
 .back-to-site:hover { color: #1a1a1a; }
 
-.dashboard { display: none; padding: 2rem; max-width: 1100px; margin: 0 auto; }
+.dashboard { display: none; padding: 2rem; max-width: 1500px; margin: 0 auto; }
 .dash-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
 .dash-header h1 { font-size: 1.4rem; font-weight: 600; }
 
@@ -833,6 +833,45 @@ tr:last-child td { border-bottom: none; }
 }
 .delete-btn:hover { border-color: #a32d2d; color: #a32d2d; background: #fcebeb; }
 .delete-btn svg { width: 14px; height: 14px; }
+
+.bookings-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+.bookings-column { min-width: 0; } /* prevents the table's content from forcing the grid track (and the whole dashboard) wider than the viewport */
+.bookings-column-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #9a9187; font-weight: 500; margin-bottom: 0.75rem; }
+.bookings-column .empty-state { padding: 1.5rem; font-size: 12px; }
+.bookings-column table {
+  font-size: 12px;
+  table-layout: fixed; /* respect column widths below instead of growing to fit content */
+}
+.bookings-column th, .bookings-column td { padding: 0.6rem 0.65rem; overflow-wrap: break-word; }
+.bookings-column th:nth-child(1), .bookings-column td:nth-child(1) { width: 15%; }
+.bookings-column th:nth-child(2), .bookings-column td:nth-child(2) { width: 19%; }
+.bookings-column th:nth-child(3), .bookings-column td:nth-child(3) { width: 17%; white-space: nowrap; }
+.bookings-column th:nth-child(4), .bookings-column td:nth-child(4) { width: 10%; }
+.bookings-column th:nth-child(5), .bookings-column td:nth-child(5) { width: 22%; overflow-wrap: anywhere; }
+.bookings-column th:nth-child(6), .bookings-column td:nth-child(6) { width: 17%; }
+.bookings-column th:nth-child(7), .bookings-column td:nth-child(7) { width: 90px; }
+
+.archived-row { opacity: 0.75; }
+.status-badge-static {
+  font-size: 12px; padding: 5px 10px; border-radius: 99px; font-weight: 500;
+  text-transform: capitalize; display: inline-block;
+}
+.paid-inline { font-size: 11px; color: #9a9187; display: block; margin-top: 4px; }
+
+.archive-btn, .unarchive-btn {
+  width: 30px; height: 30px; border-radius: 4px;
+  border: 1px solid #ddd7d2; background: #fff; color: #9a9187;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.archive-btn:hover { border-color: #854f0b; color: #854f0b; background: #faeeda; }
+.unarchive-btn:hover { border-color: #0f6e56; color: #0f6e56; background: #e1f5ee; }
+.archive-btn svg, .unarchive-btn svg { width: 14px; height: 14px; }
+.row-actions { display: flex; gap: 6px; }
+
+@media (max-width: 800px) {
+  .bookings-columns { grid-template-columns: 1fr; }
+}
 
 /* Fix: remove unwanted white background on hours table */
 .hours-table,

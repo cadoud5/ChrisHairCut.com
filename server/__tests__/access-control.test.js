@@ -50,6 +50,111 @@ describe('GET /api/bookings (admin-only route)', () => {
   });
 });
 
+describe('POST /api/bookings/manual (admin-only route)', () => {
+  const payload = {
+    name: 'Walk-in Client',
+    phone: '773-555-0100',
+    service: 'Buzzcut — $10.00 · 30 min',
+    price: '$10.00',
+    startDate: '2026-09-10T11:00:00-05:00',
+    endDate: '2026-09-10T11:30:00-05:00',
+  };
+
+  test('rejects requests with no token', async () => {
+    const res = await request(app).post('/api/bookings/manual').send(payload);
+    expect(res.status).toBe(401);
+  });
+
+  test('rejects a valid token belonging to a non-admin customer', async () => {
+    const token = tokenFor({ id: 2, role: 'customer' });
+    const res = await request(app)
+      .post('/api/bookings/manual')
+      .set('Authorization', `Bearer ${token}`)
+      .send(payload);
+
+    expect(res.status).toBe(403);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  test('allows a valid admin token to create a manual booking', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{ id: 10, ...payload, status: 'confirmed' }],
+    });
+    const token = tokenFor({ id: 1, role: 'admin' });
+
+    const res = await request(app)
+      .post('/api/bookings/manual')
+      .set('Authorization', `Bearer ${token}`)
+      .send(payload);
+
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe('confirmed');
+  });
+
+  test('accepts a completely empty payload and fills in defaults', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{ id: 11, name: 'Walk-in Client', phone: '', service: 'N/A', price: 'N/A', status: 'confirmed' }],
+    });
+    const token = tokenFor({ id: 1, role: 'admin' });
+
+    const res = await request(app)
+      .post('/api/bookings/manual')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+
+    expect(res.status).toBe(201);
+    expect(res.body.name).toBe('Walk-in Client');
+    expect(res.body.status).toBe('confirmed');
+  });
+});
+
+describe('PATCH /api/bookings/:id/archive (admin-only route)', () => {
+  test('rejects requests with no token', async () => {
+    const res = await request(app).patch('/api/bookings/5/archive').send({ archived: true });
+    expect(res.status).toBe(401);
+  });
+
+  test('rejects a valid token belonging to a non-admin customer', async () => {
+    const token = tokenFor({ id: 2, role: 'customer' });
+    const res = await request(app)
+      .patch('/api/bookings/5/archive')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ archived: true });
+
+    expect(res.status).toBe(403);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  test('allows a valid admin token to archive a booking', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 5, archived: true }] });
+    const token = tokenFor({ id: 1, role: 'admin' });
+
+    const res = await request(app)
+      .patch('/api/bookings/5/archive')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ archived: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body.archived).toBe(true);
+  });
+});
+
+describe('PATCH /api/bookings/:id (blocked while archived)', () => {
+  test('refuses to edit a booking that is archived', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 7, status: 'pending', archived: true }] });
+    const token = tokenFor({ id: 1, role: 'admin' });
+
+    const res = await request(app)
+      .patch('/api/bookings/7')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ status: 'confirmed' });
+
+    expect(res.status).toBe(400);
+    // only the lookup query ran — no UPDATE was attempted
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('GET /api/bookings/mine (customer-scoped route)', () => {
   test('only ever queries bookings for the logged-in user\'s own id', async () => {
     pool.query.mockResolvedValueOnce({ rows: [] });

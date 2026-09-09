@@ -1,0 +1,155 @@
+diff --git a/public/admin.html b/public/admin.html
+index 09a2509..1585a95 100644
+--- a/public/admin.html
++++ b/public/admin.html
+@@ -59,26 +59,26 @@
+         <form id="addAppointmentForm">
+           <div class="form-row">
+             <div class="form-group">
+-              <label for="aa-first-name">First Name</label>
+-              <input type="text" id="aa-first-name" placeholder="First name" required />
++              <label for="aa-first-name">First Name (optional)</label>
++              <input type="text" id="aa-first-name" placeholder="First name" />
+             </div>
+             <div class="form-group">
+-              <label for="aa-last-name">Last Name</label>
+-              <input type="text" id="aa-last-name" placeholder="Last name" required />
++              <label for="aa-last-name">Last Name (optional)</label>
++              <input type="text" id="aa-last-name" placeholder="Last name" />
+             </div>
+           </div>
+           <div class="form-group">
+-            <label for="aa-phone">Phone</label>
+-            <input type="tel" id="aa-phone" placeholder="xxx-xxx-xxxx" required />
++            <label for="aa-phone">Phone (optional)</label>
++            <input type="tel" id="aa-phone" placeholder="xxx-xxx-xxxx" />
+           </div>
+           <div class="form-group">
+             <label for="aa-email">Email (optional)</label>
+             <input type="email" id="aa-email" placeholder="you@example.com" />
+           </div>
+           <div class="form-group">
+-            <label for="aa-service">Service</label>
+-            <select id="aa-service" required>
+-              <option value="" disabled selected>Choose a service…</option>
++            <label for="aa-service">Service (optional)</label>
++            <select id="aa-service">
++              <option value="" selected>Choose a service…</option>
+               <option>Mens Haircut — $17.00 · 30 min</option>
+               <option>Buzzcut — $10.00 · 30 min</option>
+               <option>UIC Student — $13.00 · 30 min</option>
+@@ -86,13 +86,13 @@
+           </div>
+           <div class="form-row">
+             <div class="form-group">
+-              <label for="aa-date">Date</label>
+-              <input type="date" id="aa-date" required />
++              <label for="aa-date">Date (optional)</label>
++              <input type="date" id="aa-date" />
+             </div>
+             <div class="form-group">
+-              <label for="aa-time">Time (Central)</label>
+-              <select id="aa-time" required>
+-                <option value="" disabled selected>Select…</option>
++              <label for="aa-time">Time (Central) (optional)</label>
++              <select id="aa-time">
++                <option value="" selected>Select…</option>
+                 <option>11:00 AM</option><option>11:30 AM</option>
+                 <option>12:00 PM</option><option>12:30 PM</option>
+                 <option>1:00 PM</option><option>1:30 PM</option>
+diff --git a/public/admin.js b/public/admin.js
+index ac7d657..4a89ab8 100644
+--- a/public/admin.js
++++ b/public/admin.js
+@@ -339,10 +339,14 @@ async function submitAddAppointment(e) {
+   const rawDate = document.getElementById('aa-date').value;
+   const rawTime = document.getElementById('aa-time').value;
+ 
+-  const startTime24 = addApptTimeTo24hr(rawTime);
+-  const startDateTime = rawDate + 'T' + startTime24 + '-05:00';
+-  const endHour = String(parseInt(startTime24.slice(0, 2)) + 1).padStart(2, '0');
+-  const endDateTime = rawDate + 'T' + endHour + ':' + startTime24.slice(3) + '-05:00';
++  let startDateTime = '';
++  let endDateTime = '';
++  if (rawDate && rawTime) {
++    const startTime24 = addApptTimeTo24hr(rawTime);
++    startDateTime = rawDate + 'T' + startTime24 + '-05:00';
++    const endHour = String(parseInt(startTime24.slice(0, 2)) + 1).padStart(2, '0');
++    endDateTime = rawDate + 'T' + endHour + ':' + startTime24.slice(3) + '-05:00';
++  }
+ 
+   const token = getToken();
+ 
+diff --git a/server/__tests__/access-control.test.js b/server/__tests__/access-control.test.js
+index 8a6d45c..54c4b1f 100644
+--- a/server/__tests__/access-control.test.js
++++ b/server/__tests__/access-control.test.js
+@@ -90,6 +90,22 @@ describe('POST /api/bookings/manual (admin-only route)', () => {
+     expect(res.status).toBe(201);
+     expect(res.body.status).toBe('confirmed');
+   });
++
++  test('accepts a completely empty payload and fills in defaults', async () => {
++    pool.query.mockResolvedValueOnce({
++      rows: [{ id: 11, name: 'Walk-in Client', phone: '', service: 'N/A', price: 'N/A', status: 'confirmed' }],
++    });
++    const token = tokenFor({ id: 1, role: 'admin' });
++
++    const res = await request(app)
++      .post('/api/bookings/manual')
++      .set('Authorization', `Bearer ${token}`)
++      .send({});
++
++    expect(res.status).toBe(201);
++    expect(res.body.name).toBe('Walk-in Client');
++    expect(res.body.status).toBe('confirmed');
++  });
+ });
+ 
+ describe('PATCH /api/bookings/:id/archive (admin-only route)', () => {
+diff --git a/server/routes/bookings.js b/server/routes/bookings.js
+index f0fe6f9..d2466d0 100644
+--- a/server/routes/bookings.js
++++ b/server/routes/bookings.js
+@@ -131,21 +131,34 @@ router.post('/manual',
+   verifyToken,
+   requireAdmin,
+   [
+-    body('name').trim().isLength({ min: 1, max: 150 }).withMessage('Name is required'),
+-    body('phone').trim().isLength({ min: 7, max: 20 }).withMessage('Please enter a valid phone number'),
++    // Every field here is optional — admins can add a placeholder appointment
++    // with as little info as they have on hand and fill in the rest later.
++    // Sensible defaults for anything left blank are applied below, since the
++    // bookings table itself still requires non-null values for these columns.
++    body('name').optional({ checkFalsy: true }).trim().isLength({ max: 150 }).withMessage('Name is too long'),
++    body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }).withMessage('Phone number is too long'),
+     body('email').optional({ checkFalsy: true }).trim().isEmail().withMessage('Please enter a valid email').normalizeEmail(),
+-    body('service').trim().isLength({ min: 1, max: 200 }).withMessage('Service is required'),
+-    body('price').trim().isLength({ min: 1, max: 30 }).withMessage('Price is required'),
+-    body('startDate').isISO8601().withMessage('Invalid start date'),
+-    body('endDate').isISO8601().withMessage('Invalid end date'),
++    body('service').optional({ checkFalsy: true }).trim().isLength({ max: 200 }).withMessage('Service name is too long'),
++    body('price').optional({ checkFalsy: true }).trim().isLength({ max: 30 }).withMessage('Price is too long'),
++    body('startDate').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid start date'),
++    body('endDate').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid end date'),
+     body('notes').optional({ checkFalsy: true }).trim().isLength({ max: 1000 }).withMessage('Notes are too long'),
+   ],
+   async (req, res) => {
+     if (handleValidation(req, res)) return;
+ 
+-    const { name, phone, service, price, startDate, endDate, notes } = req.body;
++    const name = req.body.name || 'Walk-in Client';
++    const phone = req.body.phone || '';
++    const service = req.body.service || 'N/A';
++    const price = req.body.price || 'N/A';
++    const notes = req.body.notes || '';
+     const email = req.body.email || '';
+ 
++    // Default a missing start time to right now, and a missing end time to
++    // 30 minutes after the (possibly just-defaulted) start time.
++    const startDate = req.body.startDate || new Date().toISOString();
++    const endDate = req.body.endDate || new Date(new Date(startDate).getTime() + 30 * 60000).toISOString();
++
+     // If this client already has an account, link the booking to it
+     // (same lookup the public booking route does for guests).
+     let userId = null;

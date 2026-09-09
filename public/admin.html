@@ -23,6 +23,7 @@
     <div class="dash-header">
       <h1 id="dashTitle">Bookings</h1>
       <div class="dash-actions">
+        <button class="view-site-btn" id="addAppointmentBtn" data-action="open-add-appointment">+ Add Appointment</button>
         <a href="/" class="view-site-btn">View Site</a>
         <button class="logout-btn" data-action="admin-logout">Log Out</button>
       </div>
@@ -33,8 +34,84 @@
       <div class="admin-tab" id="adminTabReviews" data-action="switch-admin-tab" data-arg="reviews">Reviews</div>
     </div>
 
-    <div id="tableWrap"></div>
+    <div id="tableWrap">
+      <div class="bookings-columns">
+        <div class="bookings-column">
+          <h2 class="bookings-column-title">Active</h2>
+          <div id="activeTableWrap"></div>
+        </div>
+        <div class="bookings-column">
+          <h2 class="bookings-column-title">Archived</h2>
+          <div id="archivedTableWrap"></div>
+        </div>
+      </div>
+    </div>
     <div id="reviewsWrap" class="hidden"></div>
+  </div>
+
+  <div class="modal-overlay" id="addAppointmentOverlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-appt-title">
+      <button class="modal-close" data-action="close-add-appointment" aria-label="Close">×</button>
+
+      <div class="modal-form">
+        <p class="modal-title" id="add-appt-title">Add Appointment</p>
+
+        <form id="addAppointmentForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="aa-first-name">First Name (optional)</label>
+              <input type="text" id="aa-first-name" placeholder="First name" />
+            </div>
+            <div class="form-group">
+              <label for="aa-last-name">Last Name (optional)</label>
+              <input type="text" id="aa-last-name" placeholder="Last name" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="aa-phone">Phone (optional)</label>
+            <input type="tel" id="aa-phone" placeholder="xxx-xxx-xxxx" />
+          </div>
+          <div class="form-group">
+            <label for="aa-email">Email (optional)</label>
+            <input type="email" id="aa-email" placeholder="you@example.com" />
+          </div>
+          <div class="form-group">
+            <label for="aa-service">Service (optional)</label>
+            <select id="aa-service">
+              <option value="" selected>Choose a service…</option>
+              <option>Mens Haircut — $17.00 · 30 min</option>
+              <option>Buzzcut — $10.00 · 30 min</option>
+              <option>UIC Student — $13.00 · 30 min</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="aa-date">Date (optional)</label>
+              <input type="date" id="aa-date" />
+            </div>
+            <div class="form-group">
+              <label for="aa-time">Time (Central) (optional)</label>
+              <select id="aa-time">
+                <option value="" selected>Select…</option>
+                <option>11:00 AM</option><option>11:30 AM</option>
+                <option>12:00 PM</option><option>12:30 PM</option>
+                <option>1:00 PM</option><option>1:30 PM</option>
+                <option>2:00 PM</option><option>2:30 PM</option>
+                <option>3:00 PM</option><option>3:30 PM</option>
+                <option>4:00 PM</option><option>4:30 PM</option>
+                <option>5:00 PM</option><option>5:30 PM</option>
+                <option>6:00 PM</option><option>6:30 PM</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="aa-notes">Notes (optional)</label>
+            <textarea id="aa-notes" placeholder="Any notes…"></textarea>
+          </div>
+          <button type="submit" id="addAppointmentSubmitBtn" class="modal-submit">Add Appointment</button>
+        </form>
+      </div>
+    </div>
   </div>
 
   <script src="admin.js"></script>

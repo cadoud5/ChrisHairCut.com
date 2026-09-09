@@ -56,16 +56,25 @@ async function loadBookings() {
 }
 
 function renderTable() {
-  const wrap = document.getElementById('tableWrap');
+  const active = bookingsCache.filter(b => !b.archived);
+  const archived = bookingsCache.filter(b => b.archived);
+  renderBookingsTable('activeTableWrap', active, false);
+  renderBookingsTable('archivedTableWrap', archived, true);
+}
 
-  if (bookingsCache.length === 0) {
-    wrap.innerHTML = '<div class="empty-state">No bookings yet.</div>';
+function renderBookingsTable(containerId, list, isArchived) {
+  const wrap = document.getElementById(containerId);
+
+  if (list.length === 0) {
+    wrap.innerHTML = `<div class="empty-state">No ${isArchived ? 'archived' : 'active'} bookings${isArchived ? '' : ' yet'}.</div>`;
     return;
   }
 
-  const rows = bookingsCache.map(b => {
-    const date = new Date(b.start_date).toLocaleString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric',
+  const rows = list.map(b => {
+    const dateOnly = new Date(b.start_date).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', timeZone: 'America/Chicago'
+    });
+    const timeOnly = new Date(b.start_date).toLocaleTimeString('en-US', {
       hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago'
     });
 
@@ -76,42 +85,71 @@ function renderTable() {
     const safePrice = escapeHtml(b.price);
     const safePaid = escapeHtml(b.paid_amount || '');
 
-    const paidBox = b.status === 'completed' ? `
-      <div class="paid-box">
-        <label for="paid-${b.id}">Paid</label>
-        <input type="text" id="paid-${b.id}" placeholder="$0.00"
-               value="${safePaid}"
-               data-action="save-paid" data-booking-id="${b.id}" />
-        <span class="paid-saved" id="paid-saved-${b.id}">Saved</span>
-      </div>
-    ` : '';
+    let statusCell;
+    if (isArchived) {
+      const paidLine = b.status === 'completed' && b.paid_amount
+        ? `<span class="paid-inline">Paid ${safePaid}</span>` : '';
+      statusCell = `<span class="status-badge-static status-${b.status}">${b.status}</span>${paidLine}`;
+    } else {
+      const paidBox = b.status === 'completed' ? `
+        <div class="paid-box">
+          <label for="paid-${b.id}">Paid</label>
+          <input type="text" id="paid-${b.id}" placeholder="$0.00"
+                 value="${safePaid}"
+                 data-action="save-paid" data-booking-id="${b.id}" />
+          <span class="paid-saved" id="paid-saved-${b.id}">Saved</span>
+        </div>
+      ` : '';
+      statusCell = `
+        <select class="status-select status-${b.status}" data-action="update-status" data-booking-id="${b.id}">
+          <option value="pending"   ${b.status === 'pending'   ? 'selected' : ''}>Pending</option>
+          <option value="confirmed" ${b.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+          <option value="completed" ${b.status === 'completed' ? 'selected' : ''}>Completed</option>
+          <option value="cancelled" ${b.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+        </select>
+        ${paidBox}
+      `;
+    }
+
+    const archiveToggleBtn = isArchived ? `
+      <button class="unarchive-btn" data-action="unarchive-booking" data-booking-id="${b.id}" aria-label="Unarchive booking" title="Unarchive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M3 8h18l-1.5 12a2 2 0 0 1-2 1.8H6.5a2 2 0 0 1-2-1.8L3 8Z"/>
+          <path d="M1 4h22v4H1z"/>
+          <path d="M12 12v6"/><path d="M9 15l3-3 3 3"/>
+        </svg>
+      </button>
+    ` : `
+      <button class="archive-btn" data-action="archive-booking" data-booking-id="${b.id}" aria-label="Archive booking" title="Archive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M3 8h18l-1.5 12a2 2 0 0 1-2 1.8H6.5a2 2 0 0 1-2-1.8L3 8Z"/>
+          <path d="M1 4h22v4H1z"/>
+          <path d="M9 12h6"/>
+        </svg>
+      </button>
+    `;
 
     return `
-      <tr id="row-${b.id}">
+      <tr id="row-${b.id}"${isArchived ? ' class="archived-row"' : ''}>
         <td>${safeName}</td>
         <td>${safeService}</td>
-        <td>${date}</td>
+        <td>${dateOnly}<br>${timeOnly}</td>
         <td>${safePrice}</td>
         <td>${safePhone}<br><span style="color:#9a9187">${safeEmail}</span></td>
+        <td>${statusCell}</td>
         <td>
-          <select class="status-select status-${b.status}" data-action="update-status" data-booking-id="${b.id}">
-            <option value="pending"   ${b.status === 'pending'   ? 'selected' : ''}>Pending</option>
-            <option value="confirmed" ${b.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
-            <option value="completed" ${b.status === 'completed' ? 'selected' : ''}>Completed</option>
-            <option value="cancelled" ${b.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-          </select>
-          ${paidBox}
-        </td>
-        <td>
-          <button class="delete-btn" data-action="delete-booking" data-booking-id="${b.id}" data-booking-name="${safeName}" aria-label="Delete booking">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M3 6h18"/>
-              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-              <line x1="10" y1="11" x2="10" y2="17"/>
-              <line x1="14" y1="11" x2="14" y2="17"/>
-            </svg>
-          </button>
+          <div class="row-actions">
+            ${archiveToggleBtn}
+            <button class="delete-btn" data-action="delete-booking" data-booking-id="${b.id}" data-booking-name="${safeName}" aria-label="Delete booking">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M3 6h18"/>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -143,6 +181,44 @@ function renderTable() {
       deleteBooking(Number(el.dataset.bookingId), el.dataset.bookingName);
     });
   });
+  wrap.querySelectorAll('[data-action="archive-booking"]').forEach(el => {
+    el.addEventListener('click', () => {
+      setArchived(Number(el.dataset.bookingId), true);
+    });
+  });
+  wrap.querySelectorAll('[data-action="unarchive-booking"]').forEach(el => {
+    el.addEventListener('click', () => {
+      setArchived(Number(el.dataset.bookingId), false);
+    });
+  });
+}
+
+async function setArchived(id, archived) {
+  const token = getToken();
+  try {
+    const res = await fetch(API + '/api/bookings/' + id + '/archive', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ archived })
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      logout();
+      return;
+    }
+
+    if (!res.ok) throw new Error('Failed to update');
+
+    const updated = await res.json();
+    const idx = bookingsCache.findIndex(b => b.id === id);
+    if (idx !== -1) bookingsCache[idx] = updated;
+    renderTable();
+  } catch (err) {
+    alert(`Failed to ${archived ? 'archive' : 'unarchive'} booking. Try again.`);
+  }
 }
 
 async function updateStatus(id, status) {
@@ -215,6 +291,107 @@ async function deleteBooking(id, name) {
     alert('Failed to delete booking. Try again.');
   }
 }
+
+// ─────────────────────────────────────────
+// ADD APPOINTMENT (manual booking)
+// ─────────────────────────────────────────
+
+const addApptPrices = {
+  'Mens Haircut — $17.00 · 30 min': '$17.00',
+  'Buzzcut — $10.00 · 30 min': '$10.00',
+  'UIC Student — $13.00 · 30 min': '$13.00',
+};
+
+function addApptTimeTo24hr(t) {
+  const [time, modifier] = t.split(' ');
+  let [hours, minutes] = time.split(':');
+  hours = parseInt(hours);
+  if (modifier === 'PM' && hours !== 12) hours += 12;
+  if (modifier === 'AM' && hours === 12) hours = 0;
+  return String(hours).padStart(2, '0') + ':' + minutes + ':00';
+}
+
+function openAddAppointment() {
+  document.getElementById('addAppointmentForm').reset();
+  document.getElementById('addAppointmentOverlay').classList.add('open');
+}
+
+function closeAddAppointment() {
+  document.getElementById('addAppointmentOverlay').classList.remove('open');
+}
+
+async function submitAddAppointment(e) {
+  e.preventDefault();
+
+  const btn = document.getElementById('addAppointmentSubmitBtn');
+  btn.textContent = 'Adding…';
+  btn.disabled = true;
+
+  const firstName = document.getElementById('aa-first-name').value.trim();
+  const lastName = document.getElementById('aa-last-name').value.trim();
+  const name = `${firstName} ${lastName}`.trim();
+  const phone = document.getElementById('aa-phone').value.trim();
+  const email = document.getElementById('aa-email').value.trim();
+  const service = document.getElementById('aa-service').value;
+  const price = addApptPrices[service] || 'N/A';
+  const notes = document.getElementById('aa-notes').value.trim() || 'None';
+
+  const rawDate = document.getElementById('aa-date').value;
+  const rawTime = document.getElementById('aa-time').value;
+
+  let startDateTime = '';
+  let endDateTime = '';
+  if (rawDate && rawTime) {
+    const startTime24 = addApptTimeTo24hr(rawTime);
+    startDateTime = rawDate + 'T' + startTime24 + '-05:00';
+    const endHour = String(parseInt(startTime24.slice(0, 2)) + 1).padStart(2, '0');
+    endDateTime = rawDate + 'T' + endHour + ':' + startTime24.slice(3) + '-05:00';
+  }
+
+  const token = getToken();
+
+  try {
+    const res = await fetch(API + '/api/bookings/manual', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        name, phone, email, service, price,
+        startDate: startDateTime,
+        endDate: endDateTime,
+        notes,
+      })
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      logout();
+      return;
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to add appointment');
+    }
+
+    const booking = await res.json();
+    bookingsCache.push(booking);
+    bookingsCache.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+    renderTable();
+    closeAddAppointment();
+  } catch (err) {
+    alert(err.message || 'Failed to add appointment. Try again.');
+  } finally {
+    btn.textContent = 'Add Appointment';
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('addAppointmentForm').addEventListener('submit', submitAddAppointment);
+document.getElementById('addAppointmentOverlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('addAppointmentOverlay')) closeAddAppointment();
+});
 
 // ─────────────────────────────────────────
 // ADMIN TABS
@@ -355,8 +532,10 @@ if (getToken()) {
 // ─────────────────────────────────────────
 
 const adminStaticActionHandlers = {
-  'admin-logout':     () => logout(),
-  'switch-admin-tab': (arg) => switchAdminTab(arg),
+  'admin-logout':           () => logout(),
+  'switch-admin-tab':       (arg) => switchAdminTab(arg),
+  'open-add-appointment':   () => openAddAppointment(),
+  'close-add-appointment':  () => closeAddAppointment(),
 };
 
 document.addEventListener('click', (e) => {

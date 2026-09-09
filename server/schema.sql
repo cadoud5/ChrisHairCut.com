@@ -35,12 +35,23 @@ CREATE TABLE IF NOT EXISTS bookings (
   status             VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending | confirmed | completed | cancelled
   paid_amount        VARCHAR(30),
   calendar_event_id  VARCHAR(255),                -- Google Calendar event id, if created
+  archived           BOOLEAN NOT NULL DEFAULT false, -- archived appointments are read-only until unarchived
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(email);
 CREATE INDEX IF NOT EXISTS idx_bookings_start_date ON bookings(start_date);
+CREATE INDEX IF NOT EXISTS idx_bookings_archived ON bookings(archived);
+
+-- ─────────────────────────────────────────
+-- MIGRATION — run this against the existing production database
+-- (CREATE TABLE IF NOT EXISTS above won't add the column to a table
+-- that already exists):
+--
+--   ALTER TABLE bookings ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT false;
+--   CREATE INDEX IF NOT EXISTS idx_bookings_archived ON bookings(archived);
+-- ─────────────────────────────────────────
 
 -- ─────────────────────────────────────────
 -- reviews

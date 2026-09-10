@@ -27,7 +27,21 @@ router.post('/',
   optionalAuth,
   [
     body('name').trim().isLength({ min: 1, max: 150 }).withMessage('Name is required'),
-    body('phone').trim().isLength({ min: 7, max: 20 }).withMessage('Please enter a valid phone number'),
+    body('phone').trim().custom(value => {
+      // Only digits and common phone-formatting characters are allowed at
+      // all — anything else (letters, symbols) fails immediately, so a
+      // string like "7738140148asdf" can't sneak through just because it
+      // happens to contain exactly 10 digits somewhere in it.
+      if (!/^[\d\s().+-]+$/.test(value)) {
+        throw new Error('Please enter a valid 10-digit phone number');
+      }
+      const digits = value.replace(/\D/g, '');
+      // Accept 10-digit US numbers, optionally with a leading country code 1.
+      if (digits.length === 10 || (digits.length === 11 && digits.startsWith('1'))) {
+        return true;
+      }
+      throw new Error('Please enter a valid 10-digit phone number');
+    }),
     body('email').trim().isEmail().withMessage('Please enter a valid email').normalizeEmail(),
     body('service').trim().isLength({ min: 1, max: 200 }).withMessage('Service is required'),
     body('price').trim().isLength({ min: 1, max: 30 }).withMessage('Price is required'),

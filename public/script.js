@@ -11,6 +11,33 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// Accepts 10-digit US phone numbers in any common formatting (dashes, dots,
+// spaces, parens), optionally with a leading country code 1. Mirrors the
+// same check the server enforces in POST /api/bookings.
+function isValidPhone(value) {
+  const trimmed = value.trim();
+  // Only digits and common phone-formatting characters are allowed at all —
+  // anything else (letters, symbols) fails immediately, regardless of how
+  // many actual digits end up in the string.
+  if (!/^[\d\s().+-]+$/.test(trimmed)) return false;
+  const digits = trimmed.replace(/\D/g, '');
+  return digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
+}
+
+// Wires the phone field into the browser's native HTML5 validation UI —
+// the same bubble/tooltip the email field already gets for free from
+// type="email" — via setCustomValidity, so an invalid phone number is
+// caught the same way, before the form ever submits.
+function updatePhoneValidity() {
+  const phoneEl = document.getElementById('m-phone');
+  const value = phoneEl.value.trim();
+  if (value === '' || isValidPhone(value)) {
+    phoneEl.setCustomValidity('');
+  } else {
+    phoneEl.setCustomValidity('Please enter a valid 10-digit phone number.');
+  }
+}
+
 const dayMap = ['sun','mon','tue','wed','thu','fri','sat'];
 const todayKey = dayMap[new Date().getDay()];
 const row = document.getElementById('row-' + todayKey);
@@ -47,6 +74,7 @@ function openModal(service) {
       document.getElementById('m-phone').value = user.phone || '';
     } catch (e) {}
   }
+  updatePhoneValidity();
 
   if (service) {
     const sel = document.getElementById('m-service');
@@ -871,6 +899,11 @@ if (modalOverlayEl) {
 const reviewPhotoInputEl = document.getElementById('review-photo-input');
 if (reviewPhotoInputEl) {
   reviewPhotoInputEl.addEventListener('change', handlePhotoSelect);
+}
+
+const mPhoneEl = document.getElementById('m-phone');
+if (mPhoneEl) {
+  mPhoneEl.addEventListener('input', updatePhoneValidity);
 }
 
 const formBindings = {

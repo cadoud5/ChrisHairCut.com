@@ -843,13 +843,14 @@ tr:last-child td { border-bottom: none; }
   table-layout: fixed; /* respect column widths below instead of growing to fit content */
 }
 .bookings-column th, .bookings-column td { padding: 0.6rem 0.65rem; overflow-wrap: break-word; }
-.bookings-column th:nth-child(1), .bookings-column td:nth-child(1) { width: 15%; }
-.bookings-column th:nth-child(2), .bookings-column td:nth-child(2) { width: 19%; }
-.bookings-column th:nth-child(3), .bookings-column td:nth-child(3) { width: 17%; white-space: nowrap; }
-.bookings-column th:nth-child(4), .bookings-column td:nth-child(4) { width: 10%; }
-.bookings-column th:nth-child(5), .bookings-column td:nth-child(5) { width: 22%; overflow-wrap: anywhere; }
-.bookings-column th:nth-child(6), .bookings-column td:nth-child(6) { width: 17%; }
-.bookings-column th:nth-child(7), .bookings-column td:nth-child(7) { width: 90px; }
+.bookings-column th:nth-child(1), .bookings-column td:nth-child(1) { width: 13%; }
+.bookings-column th:nth-child(2), .bookings-column td:nth-child(2) { width: 16%; }
+.bookings-column th:nth-child(3), .bookings-column td:nth-child(3) { width: 15%; white-space: nowrap; }
+.bookings-column th:nth-child(4), .bookings-column td:nth-child(4) { width: 8%; }
+.bookings-column th:nth-child(5), .bookings-column td:nth-child(5) { width: 18%; overflow-wrap: anywhere; }
+.bookings-column th:nth-child(6), .bookings-column td:nth-child(6) { width: 15%; }
+.bookings-column th:nth-child(7), .bookings-column td:nth-child(7) { width: 15%; }
+.bookings-column th:nth-child(8), .bookings-column td:nth-child(8) { width: 90px; }
 
 .archived-row { opacity: 0.75; }
 .status-badge-static {
@@ -868,6 +869,20 @@ tr:last-child td { border-bottom: none; }
 .unarchive-btn:hover { border-color: #0f6e56; color: #0f6e56; background: #e1f5ee; }
 .archive-btn svg, .unarchive-btn svg { width: 14px; height: 14px; }
 .row-actions { display: flex; gap: 6px; }
+
+.notes-view-btn {
+  font-size: 11px; padding: 4px 10px; border-radius: 3px; cursor: pointer;
+  border: 1px solid #ddd7d2; background: #fff; color: #6b6560;
+}
+.notes-view-btn:hover { border-color: #1a1a1a; color: #1a1a1a; }
+
+.notes-modal-content {
+  margin-top: 0.75rem;
+  font-size: 13px;
+  color: #3a3530;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
 
 @media (max-width: 800px) {
   .bookings-columns { grid-template-columns: 1fr; }

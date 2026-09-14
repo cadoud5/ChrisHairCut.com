@@ -1,0 +1,147 @@
+diff --git a/public/admin.html b/public/admin.html
+index 1585a95..b4c64e8 100644
+--- a/public/admin.html
++++ b/public/admin.html
+@@ -114,6 +114,15 @@
+     </div>
+   </div>
+ 
++  <!-- NOTES MODAL -->
++  <div class="modal-overlay" id="notesModalOverlay">
++    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="notes-modal-title">
++      <button class="modal-close" data-action="close-notes-modal" aria-label="Close">×</button>
++      <p class="modal-title" id="notes-modal-title">Appointment Notes</p>
++      <p id="notesModalContent" class="notes-modal-content"></p>
++    </div>
++  </div>
++
+   <script src="admin.js"></script>
+ </body>
+ </html>
+\ No newline at end of file
+diff --git a/public/admin.js b/public/admin.js
+index 4a89ab8..85883e2 100644
+--- a/public/admin.js
++++ b/public/admin.js
+@@ -84,6 +84,11 @@ function renderBookingsTable(containerId, list, isArchived) {
+     const safeEmail = escapeHtml(b.email);
+     const safePrice = escapeHtml(b.price);
+     const safePaid = escapeHtml(b.paid_amount || '');
++    const safeNotes = escapeHtml(b.notes || '');
++
++    const notesCell = (b.notes && b.notes !== 'None')
++      ? `<button class="notes-view-btn" data-action="view-notes" data-notes="${safeNotes}">View</button>`
++      : 'N/A';
+ 
+     let statusCell;
+     if (isArchived) {
+@@ -137,6 +142,7 @@ function renderBookingsTable(containerId, list, isArchived) {
+         <td>${safePrice}</td>
+         <td>${safePhone}<br><span style="color:#9a9187">${safeEmail}</span></td>
+         <td>${statusCell}</td>
++        <td>${notesCell}</td>
+         <td>
+           <div class="row-actions">
+             ${archiveToggleBtn}
+@@ -158,7 +164,7 @@ function renderBookingsTable(containerId, list, isArchived) {
+   wrap.innerHTML = `
+     <table>
+       <thead>
+-        <tr><th>Name</th><th>Service</th><th>Date & Time</th><th>Price</th><th>Contact</th><th>Status</th><th></th></tr>
++        <tr><th>Name</th><th>Service</th><th>Date & Time</th><th>Price</th><th>Contact</th><th>Status</th><th>Notes</th><th></th></tr>
+       </thead>
+       <tbody>${rows}</tbody>
+     </table>
+@@ -191,6 +197,22 @@ function renderBookingsTable(containerId, list, isArchived) {
+       setArchived(Number(el.dataset.bookingId), false);
+     });
+   });
++  wrap.querySelectorAll('[data-action="view-notes"]').forEach(el => {
++    el.addEventListener('click', () => {
++      openNotesModal(el.dataset.notes);
++    });
++  });
++}
++
++function openNotesModal(notes) {
++  // textContent only — dataset values are already HTML-decoded plain
++  // strings, so this never gets re-parsed as HTML.
++  document.getElementById('notesModalContent').textContent = notes;
++  document.getElementById('notesModalOverlay').classList.add('open');
++}
++
++function closeNotesModal() {
++  document.getElementById('notesModalOverlay').classList.remove('open');
+ }
+ 
+ async function setArchived(id, archived) {
+@@ -536,10 +558,19 @@ const adminStaticActionHandlers = {
+   'switch-admin-tab':       (arg) => switchAdminTab(arg),
+   'open-add-appointment':   () => openAddAppointment(),
+   'close-add-appointment':  () => closeAddAppointment(),
++  'close-notes-modal':      () => closeNotesModal(),
+ };
+ 
+ document.addEventListener('click', (e) => {
+   const el = e.target.closest('[data-action]');
+   if (!el || !adminStaticActionHandlers[el.dataset.action]) return;
+   adminStaticActionHandlers[el.dataset.action](el.dataset.arg);
+-});
+\ No newline at end of file
++});
++
++// Close the notes modal when clicking its backdrop (outside the modal box)
++const notesModalOverlayEl = document.getElementById('notesModalOverlay');
++if (notesModalOverlayEl) {
++  notesModalOverlayEl.addEventListener('click', (e) => {
++    if (e.target === notesModalOverlayEl) closeNotesModal();
++  });
++}
+\ No newline at end of file
+diff --git a/public/style.css b/public/style.css
+index cd2d4b4..f727c00 100644
+--- a/public/style.css
++++ b/public/style.css
+@@ -843,13 +843,14 @@ tr:last-child td { border-bottom: none; }
+   table-layout: fixed; /* respect column widths below instead of growing to fit content */
+ }
+ .bookings-column th, .bookings-column td { padding: 0.6rem 0.65rem; overflow-wrap: break-word; }
+-.bookings-column th:nth-child(1), .bookings-column td:nth-child(1) { width: 15%; }
+-.bookings-column th:nth-child(2), .bookings-column td:nth-child(2) { width: 19%; }
+-.bookings-column th:nth-child(3), .bookings-column td:nth-child(3) { width: 17%; white-space: nowrap; }
+-.bookings-column th:nth-child(4), .bookings-column td:nth-child(4) { width: 10%; }
+-.bookings-column th:nth-child(5), .bookings-column td:nth-child(5) { width: 22%; overflow-wrap: anywhere; }
+-.bookings-column th:nth-child(6), .bookings-column td:nth-child(6) { width: 17%; }
+-.bookings-column th:nth-child(7), .bookings-column td:nth-child(7) { width: 90px; }
++.bookings-column th:nth-child(1), .bookings-column td:nth-child(1) { width: 13%; }
++.bookings-column th:nth-child(2), .bookings-column td:nth-child(2) { width: 16%; }
++.bookings-column th:nth-child(3), .bookings-column td:nth-child(3) { width: 15%; white-space: nowrap; }
++.bookings-column th:nth-child(4), .bookings-column td:nth-child(4) { width: 8%; }
++.bookings-column th:nth-child(5), .bookings-column td:nth-child(5) { width: 18%; overflow-wrap: anywhere; }
++.bookings-column th:nth-child(6), .bookings-column td:nth-child(6) { width: 15%; }
++.bookings-column th:nth-child(7), .bookings-column td:nth-child(7) { width: 15%; }
++.bookings-column th:nth-child(8), .bookings-column td:nth-child(8) { width: 90px; }
+ 
+ .archived-row { opacity: 0.75; }
+ .status-badge-static {
+@@ -869,6 +870,20 @@ tr:last-child td { border-bottom: none; }
+ .archive-btn svg, .unarchive-btn svg { width: 14px; height: 14px; }
+ .row-actions { display: flex; gap: 6px; }
+ 
++.notes-view-btn {
++  font-size: 11px; padding: 4px 10px; border-radius: 3px; cursor: pointer;
++  border: 1px solid #ddd7d2; background: #fff; color: #6b6560;
++}
++.notes-view-btn:hover { border-color: #1a1a1a; color: #1a1a1a; }
++
++.notes-modal-content {
++  margin-top: 0.75rem;
++  font-size: 13px;
++  color: #3a3530;
++  white-space: pre-wrap;
++  line-height: 1.6;
++}
++
+ @media (max-width: 800px) {
+   .bookings-columns { grid-template-columns: 1fr; }
+ }

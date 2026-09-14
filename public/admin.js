@@ -84,6 +84,11 @@ function renderBookingsTable(containerId, list, isArchived) {
     const safeEmail = escapeHtml(b.email);
     const safePrice = escapeHtml(b.price);
     const safePaid = escapeHtml(b.paid_amount || '');
+    const safeNotes = escapeHtml(b.notes || '');
+
+    const notesCell = (b.notes && b.notes !== 'None')
+      ? `<button class="notes-view-btn" data-action="view-notes" data-notes="${safeNotes}">View</button>`
+      : 'N/A';
 
     let statusCell;
     if (isArchived) {
@@ -137,6 +142,7 @@ function renderBookingsTable(containerId, list, isArchived) {
         <td>${safePrice}</td>
         <td>${safePhone}<br><span style="color:#9a9187">${safeEmail}</span></td>
         <td>${statusCell}</td>
+        <td>${notesCell}</td>
         <td>
           <div class="row-actions">
             ${archiveToggleBtn}
@@ -158,7 +164,7 @@ function renderBookingsTable(containerId, list, isArchived) {
   wrap.innerHTML = `
     <table>
       <thead>
-        <tr><th>Name</th><th>Service</th><th>Date & Time</th><th>Price</th><th>Contact</th><th>Status</th><th></th></tr>
+        <tr><th>Name</th><th>Service</th><th>Date & Time</th><th>Price</th><th>Contact</th><th>Status</th><th>Notes</th><th></th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
@@ -191,6 +197,22 @@ function renderBookingsTable(containerId, list, isArchived) {
       setArchived(Number(el.dataset.bookingId), false);
     });
   });
+  wrap.querySelectorAll('[data-action="view-notes"]').forEach(el => {
+    el.addEventListener('click', () => {
+      openNotesModal(el.dataset.notes);
+    });
+  });
+}
+
+function openNotesModal(notes) {
+  // textContent only — dataset values are already HTML-decoded plain
+  // strings, so this never gets re-parsed as HTML.
+  document.getElementById('notesModalContent').textContent = notes;
+  document.getElementById('notesModalOverlay').classList.add('open');
+}
+
+function closeNotesModal() {
+  document.getElementById('notesModalOverlay').classList.remove('open');
 }
 
 async function setArchived(id, archived) {
@@ -536,6 +558,7 @@ const adminStaticActionHandlers = {
   'switch-admin-tab':       (arg) => switchAdminTab(arg),
   'open-add-appointment':   () => openAddAppointment(),
   'close-add-appointment':  () => closeAddAppointment(),
+  'close-notes-modal':      () => closeNotesModal(),
 };
 
 document.addEventListener('click', (e) => {
@@ -543,3 +566,11 @@ document.addEventListener('click', (e) => {
   if (!el || !adminStaticActionHandlers[el.dataset.action]) return;
   adminStaticActionHandlers[el.dataset.action](el.dataset.arg);
 });
+
+// Close the notes modal when clicking its backdrop (outside the modal box)
+const notesModalOverlayEl = document.getElementById('notesModalOverlay');
+if (notesModalOverlayEl) {
+  notesModalOverlayEl.addEventListener('click', (e) => {
+    if (e.target === notesModalOverlayEl) closeNotesModal();
+  });
+}
